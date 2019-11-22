@@ -130,7 +130,7 @@ def get_free_choices(grades: List[Grade], credits_needed) -> List[Grade]:
     return res
 
 
-def get_reweigt_grade(grades: List[List[Grade]], expected_credits: List[int]) -> float:
+def get_reweight_grade(grades: List[List[Grade]], expected_credits: List[int]) -> float:
     assert len(grades) == len(expected_credits)
     if sum(expected_credits) == 0:
         return 5.0
@@ -232,7 +232,7 @@ def compute_grade(grades: List[Grade]):
                           min(8, sum_of_credits(minor_2_grades)),
                           min(19, sum_of_credits(free_choice_grades))]
 
-    total_grade = get_reweigt_grade(all_grades, all_credit_weigths)
+    total_grade = get_reweight_grade(all_grades, all_credit_weigths)
 
     all_grades_flattened = sum(all_grades, [])
     print(f"theo credits reached: {sum_of_theo_credits(all_grades_flattened) > 10}: "
