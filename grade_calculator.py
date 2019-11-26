@@ -32,6 +32,7 @@ COURSE_AREAS = {Area.ALG, Area.CGV, Area.DBI, Area.DBM, Area.SE, Area.FMA, Area.
 
 # schema: (module name, area, ects, grade, THEO)
 Grade = Tuple[str, Area, int, float, bool]
+# enter your own grades in this list:
 grades: List[Grade] = \
     [("ERDB", Area.DBI, 6, 1.0, False),
      ("MMDS", Area.MLA, 5, 1.5, False),
