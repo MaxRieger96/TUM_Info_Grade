@@ -1,6 +1,6 @@
 from enum import Enum
 from itertools import chain, combinations
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set, Iterable
 
 
 # area tags
@@ -47,8 +47,12 @@ grades: List[Grade] = \
      ]
 
 
+def flatten(l: Iterable) -> List:
+    return list(chain.from_iterable(l))
+
+
 def power_set(grades: List[Grade]) -> List[List[Grade]]:
-    res = list(chain.from_iterable(combinations(grades, r) for r in range(len(grades) + 1)))
+    res = flatten(combinations(grades, r) for r in range(len(grades) + 1))
     return list(map(lambda x: list(x), res))
 
 
@@ -231,7 +235,7 @@ def compute_grade(grades: List[Grade]):
     minor_2_complete = get_complete(minor_2_grades, 8)
 
     # free choices
-    available_grades = set(sum([by_areas.get(area, []) for area in COURSE_AREAS], []))
+    available_grades = set(flatten([by_areas.get(area, []) for area in COURSE_AREAS]))
     available_grades |= set(by_areas.get(Area.PRACTICAL, []))
     available_grades |= set(by_areas.get(Area.GUIDED_RESEARCH, []))
     available_grades = list(available_grades
@@ -279,7 +283,7 @@ def compute_grade(grades: List[Grade]):
 
     total_grade = get_reweight_grade(all_grades, all_credit_weigths)
 
-    all_grades_flattened = sum(all_grades, [])
+    all_grades_flattened = flatten(all_grades)
     print("Masters Programm complete:", all(all_completions))
     print(f"theo credits reached: {sum_of_theo_credits(all_grades_flattened) > 10}: "
           f"{sum_of_theo_credits(all_grades_flattened)}/10")
