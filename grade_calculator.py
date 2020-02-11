@@ -242,7 +242,6 @@ def compute_grade(grades: List[Grade]):
                             - set(prac_1_grades))
     credits_needed = 19
     theo_credits_needed = 10 - sum_of_theo_credits(major_grades + minor_1_grades + minor_2_grades)
-    print("theo", theo_credits_needed)
     free_choice_grades = get_free_choices(available_grades, credits_needed, theo_credits_needed)
     print("free choices:", f"{avg_grade(free_choice_grades):.3f}", get_complete_str(free_choice_grades, 19))
     print_grades(free_choice_grades)
