@@ -79,6 +79,13 @@ def get_best_fill(grades: List[Grade], credits: int) -> List[Grade]:
     return get_best_theo_fill(grades, credits, 0)
 
 
+def is_minimal(grades: List[Grade], required_credits: int) -> bool:
+    if sum_of_credits(grades) > required_credits:
+        return True
+    else:
+        return min([grade[2] for grade in grades]) > sum_of_credits(grades) - required_credits
+
+
 def get_best_theo_fill(grades: List[Grade], credits: int, required_theo_credits: int) -> List[Grade]:
     if sum_of_credits(grades) <= credits:
         return grades
@@ -86,8 +93,7 @@ def get_best_theo_fill(grades: List[Grade], credits: int, required_theo_credits:
         combs = power_set(grades)
         valid_combs = filter(lambda x: sum_of_credits(x) >= credits, combs)
         valid_combs = list(filter(lambda x: sum_of_theo_credits(x) >= required_theo_credits, valid_combs))
-        min_len = min([len(x) for x in valid_combs])
-        valid_combs = list(filter(lambda x: len(x) == min_len, valid_combs))
+        valid_combs = list(filter(lambda x: is_minimal(x, credits), valid_combs))
         return sorted(valid_combs, key=lambda x: avg_grade(x))[0]
 
 
@@ -236,6 +242,7 @@ def compute_grade(grades: List[Grade]):
                             - set(prac_1_grades))
     credits_needed = 19
     theo_credits_needed = 10 - sum_of_theo_credits(major_grades + minor_1_grades + minor_2_grades)
+    print("theo", theo_credits_needed)
     free_choice_grades = get_free_choices(available_grades, credits_needed, theo_credits_needed)
     print("free choices:", f"{avg_grade(free_choice_grades):.3f}", get_complete_str(free_choice_grades, 19))
     print_grades(free_choice_grades)
@@ -282,5 +289,5 @@ def compute_grade(grades: List[Grade]):
 
 
 if __name__ == '__main__':
-    print(sum_of_credits(grades))
+    print(f"Credit sum of all modules: {sum_of_credits(grades)}")
     compute_grade(grades)
