@@ -1,6 +1,6 @@
 from enum import Enum
 from itertools import chain, combinations
-from typing import List, Tuple, Dict, Set, Iterable
+from typing import List, Tuple, Dict, Set, Iterable, TypeVar
 
 
 # area tags
@@ -46,12 +46,14 @@ grades: List[Grade] = \
      ("itsec", Area.SP, 5, 2.7, False),
      ]
 
+T = TypeVar("T")
 
-def flatten(l: Iterable) -> List:
+
+def flatten(l: Iterable[Iterable[T]]) -> List[T]:
     return list(chain.from_iterable(l))
 
 
-def power_set(grades: List[Grade]) -> List[List[Grade]]:
+def power_set(grades: List[T]) -> List[List[T]]:
     res = flatten(combinations(grades, r) for r in range(len(grades) + 1))
     return list(map(lambda x: list(x), res))
 
@@ -84,7 +86,7 @@ def get_best_fill(grades: List[Grade], credits: int) -> List[Grade]:
 
 
 def is_minimal(grades: List[Grade], required_credits: int) -> bool:
-    if sum_of_credits(grades) > required_credits:
+    if sum_of_credits(grades) <= required_credits:
         return True
     else:
         return min([grade[2] for grade in grades]) > sum_of_credits(grades) - required_credits
