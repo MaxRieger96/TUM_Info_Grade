@@ -154,7 +154,7 @@ def get_best_minor(by_areas: Dict[Area, List[Grade]], areas: Set[Area]) -> Tuple
 def get_improving_grades(current_grades: List[Grade], available_grades: List[Grade]) -> List[Grade]:
     available_grades.sort(key=lambda x: x[3])
     result = []
-    while available_grades[0][3] < avg_grade(current_grades + result):
+    while len(available_grades) > 0 and available_grades[0][3] < avg_grade(current_grades + result):
         result.append(available_grades.pop(0))
     return result
 
