@@ -282,7 +282,7 @@ def compute_grade(grades: List[Grade]):
     free_choice_grades = get_free_choices(available_grades, credits_needed, theo_credits_needed, flatten(all_grades))
     print("free choices:", f"{avg_grade(free_choice_grades):.3f}", get_complete_str(free_choice_grades, 19))
     print_grades(free_choice_grades)
-    free_choices_complete = get_complete(free_choice_grades, 19)
+    free_choices_complete = get_complete(free_choice_grades, credits_needed)
 
     all_completions = [thesis_complete,
                        idp_complete,
