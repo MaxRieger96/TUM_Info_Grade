@@ -1,6 +1,6 @@
 from enum import Enum
 from itertools import chain, combinations
-from typing import List, Tuple, Dict, Set, Iterable, TypeVar
+from typing import List, Tuple, Dict, Set, Iterable, TypeVar, Optional
 
 
 # area tags
@@ -9,7 +9,6 @@ class Area(Enum):
     PRACTICAL = "PRACTICAL"
     THESIS = "THESIS"
     IDP = "IDP"
-    IDP_LECTURE = "IDP_LECTURE"
     GUIDED_RESEARCH = "GUIDED_RESEARCH"
     SEMINAR = "SEMINAR"
 
@@ -31,26 +30,41 @@ COURSE_AREAS = {Area.ALG, Area.CGV, Area.DBI, Area.DBM, Area.SE, Area.FMA, Area.
                 Area.HPC, Area.OTHER}
 
 # schema: (module name, area, ects, grade, THEO)
-Grade = Tuple[str, Area, int, float, bool]
+Grade = Tuple[str, Area, int, Optional[float], bool]
 # enter your own grades in this list:
-grades: List[Grade] = \
-    [("ERDB", Area.DBI, 6, 1.0, False),
-     ("MMDS", Area.MLA, 5, 1.5, False),
-     ("ADL4CV", Area.CGV, 8, 1.3, False),
-     ("Franz", Area.SUP, 3, 1.7, False),
-     ("DDML", Area.PRACTICAL, 10, 1.0, False),
-     ("NLP", Area.MLA, 6, 2.3, False),
-     ("EAD", Area.ALG, 8, 1.3, True),
-     ("I2DL", Area.MLA, 6, 2.0, False),
-     ("ProgOpt", Area.FMA, 8, 2.3, True),
-     ("itsec", Area.SP, 5, 2.7, False),
-     ]
+GRADES: List[Grade] = \
+    [
+        ("Thesis", Area.THESIS, 30, 1.0, False),
+
+        ("IDP", Area.IDP, 16, 1.2, False),
+        ("DiDaTra", Area.SUP, 4, None, False),
+        ("C++", Area.PRACTICAL, 10, 1.0, False),
+        ("ADLR", Area.MLA, 6, 1.7, False),
+
+        ("CAML", Area.SEMINAR, 5, 1.0, False),
+        ("BA", Area.MLA, 5, 1.8, False),
+        ("Patterns", Area.SE, 5, 1.7, False),
+        ("CA", Area.RRV, 6, 1.0, False),
+        ("TWG", Area.SUP, 3, 1.3, False),
+
+        ("ERDB", Area.DBI, 6, 1.0, False),
+        ("MMDS", Area.MLA, 5, 1.5, False),
+        ("ADL4CV", Area.CGV, 8, 1.3, False),
+        ("Franz", Area.SUP, 3, 1.7, False),
+        ("DDML", Area.PRACTICAL, 10, 1.0, False),
+
+        ("NLP", Area.MLA, 6, 2.3, False),
+        ("EAD", Area.ALG, 8, 1.3, True),
+        ("I2DL", Area.MLA, 6, 2.0, False),
+        ("ProgOpt", Area.FMA, 8, 2.3, True),
+        ("itsec", Area.SP, 5, 2.7, False),
+    ]
 
 T = TypeVar("T")
 
 
-def flatten(l: Iterable[Iterable[T]]) -> List[T]:
-    return list(chain.from_iterable(l))
+def flatten(iterable: Iterable[Iterable[T]]) -> List[T]:
+    return list(chain.from_iterable(iterable))
 
 
 def power_set(grades: List[T]) -> List[List[T]]:
@@ -67,7 +81,9 @@ def sum_of_theo_credits(grades: List[Grade]) -> int:
 
 
 def avg_grade(grades: List[Grade]) -> float:
-    if len(grades) == 0: return 5.0
+    grades = list(filter(lambda x: x[3] is not None, grades))
+    if len(grades) == 0:
+        return 5.0
     return sum(map(lambda x: x[2] * x[3], grades)) / sum(map(lambda x: x[2], grades))
 
 
@@ -81,8 +97,8 @@ def map_to_areas(grades: List[Grade]) -> Dict[Area, List[Grade]]:
     return res
 
 
-def get_best_fill(grades: List[Grade], credits: int) -> List[Grade]:
-    return get_best_theo_fill(grades, credits, 0)
+def get_best_fill(grades: List[Grade], ects: int) -> List[Grade]:
+    return get_best_theo_fill(grades, ects, 0)
 
 
 def is_minimal(grades: List[Grade], required_credits: int) -> bool:
@@ -92,19 +108,19 @@ def is_minimal(grades: List[Grade], required_credits: int) -> bool:
         return min([grade[2] for grade in grades]) > sum_of_credits(grades) - required_credits
 
 
-def get_best_theo_fill(grades: List[Grade], credits: int, required_theo_credits: int) -> List[Grade]:
-    if sum_of_credits(grades) <= credits:
+def get_best_theo_fill(grades: List[Grade], ects: int, required_theo_credits: int) -> List[Grade]:
+    if sum_of_credits(grades) <= ects:
         return grades
     else:
         combs = power_set(grades)
-        valid_combs = filter(lambda x: sum_of_credits(x) >= credits, combs)
+        valid_combs = filter(lambda x: sum_of_credits(x) >= ects, combs)
         valid_combs = list(filter(lambda x: sum_of_theo_credits(x) >= required_theo_credits, valid_combs))
-        valid_combs = list(filter(lambda x: is_minimal(x, credits), valid_combs))
+        valid_combs = list(filter(lambda x: is_minimal(x, ects), valid_combs))
         return sorted(valid_combs, key=lambda x: avg_grade(x))[0]
 
 
 def get_all_elective_areas(grades: List[Grade]) -> Set[Area]:
-    res = set(map(lambda x: x[1], grades)) - {Area.SUP, Area.IDP, Area.IDP_LECTURE, Area.THESIS, Area.PRACTICAL,
+    res = set(map(lambda x: x[1], grades)) - {Area.SUP, Area.IDP, Area.THESIS, Area.PRACTICAL,
                                               Area.GUIDED_RESEARCH}
     return res
 
@@ -135,7 +151,16 @@ def get_best_minor(by_areas: Dict[Area, List[Grade]], areas: Set[Area]) -> Tuple
     return best_minor[0][1], best_minor
 
 
-def get_free_choices(grades: List[Grade], credits_needed: int, theo_credits_needed: int) -> List[Grade]:
+def get_improving_grades(current_grades: List[Grade], available_grades: List[Grade]) -> List[Grade]:
+    available_grades.sort(key=lambda x: x[3])
+    result = []
+    while available_grades[0][3] < avg_grade(current_grades + result):
+        result.append(available_grades.pop(0))
+    return result
+
+
+def get_free_choices(grades: List[Grade], credits_needed: int, theo_credits_needed: int,
+                     other_grades: List[Grade]) -> List[Grade]:
     # choose a 2nd practical or a guided research if the grades are better
     res = []
     best_avg = get_best_fill(grades, credits_needed)
@@ -147,15 +172,10 @@ def get_free_choices(grades: List[Grade], credits_needed: int, theo_credits_need
         grades = list(set(grades) - set(best_pracs_grs))
     # choose courses to reach THEO credit limit
     res += get_best_theo_fill(grades, credits_needed, theo_credits_needed)
+    # choose additional courses which might improve the grade
+    grades = list(set(grades) - set(res))
+    res += get_improving_grades(other_grades + res, grades)
     return res
-
-
-def get_reweight_grade(grades: List[List[Grade]], expected_credits: List[int]) -> float:
-    assert len(grades) == len(expected_credits)
-    if sum(expected_credits) == 0:
-        return 5.0
-    grades = list(map(lambda x: avg_grade(x), grades))
-    return sum(map(lambda x: x[1] * expected_credits[x[0]], enumerate(grades))) / sum(expected_credits)
 
 
 def get_complete(grades: List[Grade], required_credits: int) -> bool:
@@ -188,12 +208,9 @@ def compute_grade(grades: List[Grade]):
     thesis_complete = get_complete(thesis_grades, 30)
 
     # idp
-    idp_project_grades = get_best_fill(by_areas.get(Area.IDP, []), 11)
-    idp_lecture_grades = get_best_fill(by_areas.get(Area.IDP_LECTURE, []), 5)
-    idp_grades = idp_lecture_grades + idp_project_grades
-    print("IDP", f"{avg_grade(idp_grades):.3f}", get_complete_str(idp_grades, 16))
-    print_grades(idp_grades)
-    idp_complete = get_complete(idp_grades, 16)
+    idp_grade = get_best_fill(by_areas.get(Area.IDP, []), 16)
+    print("IDP", f"{avg_grade(idp_grade):.3f}", get_complete_str(idp_grade, 16))
+    idp_complete = get_complete(idp_grade, 16)
 
     # support electives
     sup_grades = get_best_fill(by_areas.get(Area.SUP, []), 6)
@@ -216,18 +233,22 @@ def compute_grade(grades: List[Grade]):
     areas = get_all_elective_areas(grades)
 
     # major
+    major_credits = 18
     major_name, major_grades = get_best_major(by_areas, areas)
     areas -= {major_name}
     print("major:", major_name, f"{avg_grade(major_grades):.3f}", get_complete_str(major_grades, 18))
     print_grades(major_grades)
-    major_complete = get_complete(major_grades, 18)
+    major_complete = get_complete(major_grades, major_credits)
+    major_credit_excess = max(0, major_credits - sum_of_credits(major_grades))
 
+    minor_credits = 8
     # 1st minor
     minor_1_name, minor_1_grades = get_best_minor(by_areas, areas)
     areas -= {minor_1_name}
     print("1st minor:", minor_1_name, f"{avg_grade(minor_1_grades):.3f}", get_complete_str(minor_1_grades, 8))
     print_grades(minor_1_grades)
     minor_1_complete = get_complete(minor_1_grades, 8)
+    minor_1_credit_excess = max(0, minor_credits - sum_of_credits(minor_1_grades))
 
     # 2nd minor
     minor_2_name, minor_2_grades = get_best_minor(by_areas, areas)
@@ -235,6 +256,16 @@ def compute_grade(grades: List[Grade]):
     print("2nd minor:", minor_2_name, f"{avg_grade(minor_2_grades):.3f}", get_complete_str(minor_2_grades, 8))
     print_grades(minor_2_grades)
     minor_2_complete = get_complete(minor_2_grades, 8)
+    minor_2_credit_excess = max(0, minor_credits - sum_of_credits(minor_2_grades))
+
+    all_grades = [thesis_grades,
+                  idp_grade,
+                  sup_grades,
+                  prac_1_grades,
+                  seminar_grades,
+                  major_grades,
+                  minor_1_grades,
+                  minor_2_grades]
 
     # free choices
     available_grades = set(flatten([by_areas.get(area, []) for area in COURSE_AREAS]))
@@ -246,9 +277,9 @@ def compute_grade(grades: List[Grade]):
                             - set(minor_1_grades)
                             - set(minor_2_grades)
                             - set(prac_1_grades))
-    credits_needed = 19
+    credits_needed = 19 - sum((major_credit_excess, minor_1_credit_excess, minor_2_credit_excess))
     theo_credits_needed = 10 - sum_of_theo_credits(major_grades + minor_1_grades + minor_2_grades)
-    free_choice_grades = get_free_choices(available_grades, credits_needed, theo_credits_needed)
+    free_choice_grades = get_free_choices(available_grades, credits_needed, theo_credits_needed, flatten(all_grades))
     print("free choices:", f"{avg_grade(free_choice_grades):.3f}", get_complete_str(free_choice_grades, 19))
     print_grades(free_choice_grades)
     free_choices_complete = get_complete(free_choice_grades, 19)
@@ -263,36 +294,22 @@ def compute_grade(grades: List[Grade]):
                        minor_2_complete,
                        free_choices_complete]
 
-    all_grades = [thesis_grades,
-                  idp_grades,
-                  sup_grades,
-                  prac_1_grades,
-                  seminar_grades,
-                  major_grades,
-                  minor_1_grades,
-                  minor_2_grades,
-                  free_choice_grades]
+    all_grades.append(free_choice_grades)
 
-    all_credit_weigths = [min(30, sum_of_credits(thesis_grades)),
-                          min(16, sum_of_credits(idp_grades)),
-                          min(6, sum_of_credits(sup_grades)),
-                          min(10, sum_of_credits(prac_1_grades)),
-                          min(5, sum_of_credits(seminar_grades)),
-                          min(18, sum_of_credits(major_grades)),
-                          min(8, sum_of_credits(minor_1_grades)),
-                          min(8, sum_of_credits(minor_2_grades)),
-                          min(19, sum_of_credits(free_choice_grades))]
-
-    total_grade = get_reweight_grade(all_grades, all_credit_weigths)
+    final_grade = avg_grade(flatten(all_grades))
 
     all_grades_flattened = flatten(all_grades)
-    print("Masters Programm complete:", all(all_completions))
+    print("\nMasters Programm complete:", all(all_completions))
     print(f"theo credits reached: {sum_of_theo_credits(all_grades_flattened) > 10}: "
           f"{sum_of_theo_credits(all_grades_flattened)}/10")
 
-    print(f"total grade: {total_grade:.3f}")
+    print(f"final grade: {final_grade:.3f}")
+
+    non_contributing_courses = list(set(grades) - set(all_grades_flattened))
+    print("\nnon contributing courses:")
+    print_grades(non_contributing_courses)
 
 
 if __name__ == '__main__':
-    print(f"Credit sum of all modules: {sum_of_credits(grades)}")
-    compute_grade(grades)
+    print(f"Credit sum of all contributing modules: {sum_of_credits(GRADES)}")
+    compute_grade(GRADES)
