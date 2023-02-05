@@ -101,11 +101,15 @@ def get_best_fill(grades: List[Grade], ects: int) -> List[Grade]:
     return get_best_theo_fill(grades, ects, 0)
 
 
-def is_minimal(grades: List[Grade], required_credits: int) -> bool:
+def is_minimal(grades: List[Grade], required_credits: int, required_theo_credits: int) -> bool:
     if sum_of_credits(grades) <= required_credits:
         return True
     else:
-        return min([grade[2] for grade in grades]) > sum_of_credits(grades) - required_credits
+        residual_credits = sum_of_credits(grades) - required_credits
+        residual_theo_credits = sum_of_theo_credits(grades) - required_theo_credits
+        return not any(grade[2] <= residual_credits
+                       and sum_of_theo_credits([grade]) <= residual_theo_credits
+                       for grade in grades)
 
 
 def get_best_theo_fill(grades: List[Grade], ects: int, required_theo_credits: int) -> List[Grade]:
@@ -115,7 +119,7 @@ def get_best_theo_fill(grades: List[Grade], ects: int, required_theo_credits: in
         combs = power_set(grades)
         valid_combs = filter(lambda x: sum_of_credits(x) >= ects, combs)
         valid_combs = list(filter(lambda x: sum_of_theo_credits(x) >= required_theo_credits, valid_combs))
-        valid_combs = list(filter(lambda x: is_minimal(x, ects), valid_combs))
+        valid_combs = list(filter(lambda x: is_minimal(x, ects, required_theo_credits), valid_combs))
         return sorted(valid_combs, key=lambda x: avg_grade(x))[0]
 
 
@@ -125,30 +129,17 @@ def get_all_elective_areas(grades: List[Grade]) -> Set[Area]:
     return res
 
 
-def get_best_major(by_areas: Dict[Area, List[Grade]], areas: Set[Area]) -> Tuple[Area, List[Grade]]:
-    major_credits = 18
-    possible_majors = [get_best_fill(by_areas[area], major_credits) for area in areas]
+def get_best_subfield(required_credits: int, by_areas: Dict[Area, List[Grade]], areas: Set[Area]) \
+        -> Tuple[Area, List[Grade]]:
+    possible_majors = [get_best_fill(by_areas[area], required_credits) for area in areas]
     if len(possible_majors) == 0:
         return Area.OTHER, []
-    if max(map(lambda x: sum_of_credits(x), possible_majors)) < major_credits:
+    if max(map(lambda x: sum_of_credits(x), possible_majors)) < required_credits:
         best_major = sorted(possible_majors, key=lambda x: sum_of_credits(x))[-1]
     else:
-        possible_majors = filter(lambda x: sum_of_credits(x) >= major_credits, possible_majors)
+        possible_majors = filter(lambda x: sum_of_credits(x) >= required_credits, possible_majors)
         best_major = sorted(possible_majors, key=lambda x: avg_grade(x))[0]
     return best_major[0][1], best_major
-
-
-def get_best_minor(by_areas: Dict[Area, List[Grade]], areas: Set[Area]) -> Tuple[Area, List[Grade]]:
-    minor_credits = 8
-    possible_minors = [get_best_fill(by_areas[area], minor_credits) for area in areas]
-    if len(possible_minors) == 0:
-        return Area.OTHER, []
-    if max(map(lambda x: sum_of_credits(x), possible_minors)) < minor_credits:
-        best_minor = sorted(possible_minors, key=lambda x: sum_of_credits(x))[-1]
-    else:
-        possible_minors = filter(lambda x: sum_of_credits(x) >= minor_credits, possible_minors)
-        best_minor = sorted(possible_minors, key=lambda x: avg_grade(x))[0]
-    return best_minor[0][1], best_minor
 
 
 def get_improving_grades(current_grades: List[Grade], available_grades: List[Grade]) -> List[Grade]:
@@ -234,29 +225,29 @@ def compute_grade(grades: List[Grade]):
 
     # major
     major_credits = 18
-    major_name, major_grades = get_best_major(by_areas, areas)
+    major_name, major_grades = get_best_subfield(major_credits, by_areas, areas)
     areas -= {major_name}
     print("major:", major_name, f"{avg_grade(major_grades):.3f}", get_complete_str(major_grades, 18))
     print_grades(major_grades)
     major_complete = get_complete(major_grades, major_credits)
-    major_credit_excess = max(0, major_credits - sum_of_credits(major_grades))
+    major_credit_excess = max(0, sum_of_credits(major_grades) - major_credits)
 
     minor_credits = 8
     # 1st minor
-    minor_1_name, minor_1_grades = get_best_minor(by_areas, areas)
+    minor_1_name, minor_1_grades = get_best_subfield(minor_credits, by_areas, areas)
     areas -= {minor_1_name}
     print("1st minor:", minor_1_name, f"{avg_grade(minor_1_grades):.3f}", get_complete_str(minor_1_grades, 8))
     print_grades(minor_1_grades)
     minor_1_complete = get_complete(minor_1_grades, 8)
-    minor_1_credit_excess = max(0, minor_credits - sum_of_credits(minor_1_grades))
+    minor_1_credit_excess = max(0, sum_of_credits(minor_1_grades) - minor_credits)
 
     # 2nd minor
-    minor_2_name, minor_2_grades = get_best_minor(by_areas, areas)
+    minor_2_name, minor_2_grades = get_best_subfield(minor_credits, by_areas, areas)
     areas -= {minor_2_name}
     print("2nd minor:", minor_2_name, f"{avg_grade(minor_2_grades):.3f}", get_complete_str(minor_2_grades, 8))
     print_grades(minor_2_grades)
     minor_2_complete = get_complete(minor_2_grades, 8)
-    minor_2_credit_excess = max(0, minor_credits - sum_of_credits(minor_2_grades))
+    minor_2_credit_excess = max(0, sum_of_credits(minor_2_grades) - minor_credits)
 
     all_grades = [thesis_grades,
                   idp_grade,
@@ -280,7 +271,7 @@ def compute_grade(grades: List[Grade]):
     credits_needed = 19 - sum((major_credit_excess, minor_1_credit_excess, minor_2_credit_excess))
     theo_credits_needed = 10 - sum_of_theo_credits(major_grades + minor_1_grades + minor_2_grades)
     free_choice_grades = get_free_choices(available_grades, credits_needed, theo_credits_needed, flatten(all_grades))
-    print("free choices:", f"{avg_grade(free_choice_grades):.3f}", get_complete_str(free_choice_grades, 19))
+    print("free choices:", f"{avg_grade(free_choice_grades):.3f}", get_complete_str(free_choice_grades, credits_needed))
     print_grades(free_choice_grades)
     free_choices_complete = get_complete(free_choice_grades, credits_needed)
 
